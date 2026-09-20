@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# FastHTML runtime
+.sesskey
+
+# Logs & debug dumps
+*.log
+page-dump.html
+
+# Local media (video lives on the machine, not in the repo)
+public/*.mp4
+public/*.webm
