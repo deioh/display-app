@@ -1,134 +1,113 @@
-# display-app
+# Queue Display Kiosk Controller
 
-A kiosk-style clinic queue display built with [FastHTML](https://fastht.ml/) and Playwright.
+A Windows kiosk application built with **AutoIt** that manages hospital queue displays. It orchestrates Chrome browser windows to show multiple web pages side-by-side, with optional local video overlays.
 
-Shows a live queue board (dept/doctor + ticket) on the left, extracted from a public-view page that renders client-side JavaScript (Meteor SPA), while a local video loops on the right.
+## Features
+
+- 🖥️ **Multiple Display Modes**
+  - `dual_url` — Two queue URLs side-by-side (50%/50%)
+  - `single_url` — One URL fills the entire screen
+  - `video_left` — Local video (40%) + URL (60%)
+  - `video_right` — URL (60%) + local video (40%)
+- ⚡ **AutoHotkey-style hotkeys** for control during operation
+- 🔄 **Crash recovery** — automatically restarts browser windows if they crash
+- 🔇 **Mute toggle** — F9 to mute/unmute audio
+- 🚀 **Kiosk-ready** — auto-starts in fullscreen, hides controls
+
+## Project Structure
 
 ```
-+------------------------------------------------------+------------------+
-|                                                      |                  |
-|   Queue board (dept/doctor + ticket, readable size)  |   video (loops)  |
-|                                                      |                  |
-+------------------------------------------------------+------------------+
+queue_kiosk/
+├── launcher.au3        ← Main AutoIt script (kiosk controller)
+├── config.ini          ← Your settings (NOT in git — see .gitignore)
+├── config.ini.example  ← Template configuration
+├── run_display.bat     ← Windows batch launcher
+├── README.md           ← This file
+├── requirements.txt    ← Python deps (for web backend only)
+├── main.py             ← Flask/FastHTML backend (legacy)
+├── video_queue_dashboard.html ← Standalone HTML dashboard
+├── examples/           ← Reference implementations
+└── lib/                ← Future helper modules
 ```
 
-## How it works
+## Prerequisites
 
-The source page (`PAGE_URL`) is a Meteor SPA — its content renders with JavaScript, so it can't be scraped with a plain HTTP fetch. The app keeps a headless Chromium (Playwright) page open on that URL, samples the queue rows every `REFRESH_SECS` seconds, and discards the middle column (window/room). The board re-renders via HTMX polling.
+1. **Windows** (tested on Windows 10/11)
+2. **Google Chrome** installed
+3. **AutoIt** (optional — for compiling; you can also run `.au3` directly)
+   - Download: https://www.autoitscript.com/site/autoit/downloads/
 
-**Queue extraction logic:**
-- The source page renders 3-cell `<div>` rows: Department/Doctor | Window/Room | Ticket
-- The extraction script finds all such rows with sufficient width/height, deduplicates them, and drops the middle column (Window/Room) for display.
+## Setup
 
-## Quick start
-
+### Step 1: Install dependencies
 ```bash
-# 1. Install dependencies
-python -m pip install -r requirements.txt
-
-# 2. Install Playwright's Chromium browser
-python -m playwright install chromium
-
-# 3. Add a video file
-#    Drop any MP4 into public/ named video.mp4, or generate a test one:
-python make_test_video.py
-
-# 4. Configure (optional)
-#    Set environment variables — see "Configuration" below
-
-# 5. Run
-python main.py
-
-# Open http://localhost:5001
+pip install -r requirements.txt
+python -m playwright install chromium  # Only needed for Python backend
 ```
 
-## Configuration
-
-All settings are environment variables with sensible defaults:
-
-| Variable | Default | Description |
-|---|---|---|
-| `PAGE_URL` | `http://192.168.1.2:9096/...` | The public-view page to scrape |
-| `VIDEO_FILE` | `video.mp4` | Filename of your video in `public/` |
-| `VIDEO_WIDTH` | `45vw` | Width of the video pane |
-| `BOARD_WIDTH` | `55vw` | Width of the queue board pane |
-| `VIDEO_BG_COLOR` | `#000` | Background color behind the video |
-| `VIDEO_FIT` | `contain` | `contain` (full video) or `cover` (crop) |
-| `REFRESH_SECS` | `5` | How often the board is re-sampled (seconds) |
-| `PLAYWRIGHT_HEADLESS` | `1` | Set to `0` to see the browser window (debugging) |
-| `PORT` | `5001` | Listen port |
-
-Example `.env` file:
-
+### Step 2: Configure
 ```bash
-PAGE_URL=http://your-clinic-ip:9096/public-view-classic-transactional-multi/your-key
-VIDEO_FILE=my_video.mp4
-REFRESH_SECS=10
-PORT=5001
+cp config.ini.example config.ini
+# Edit config.ini with your clinic's URLs and settings:
+notepad config.ini
 ```
 
-Load with `python -m dotenv run python main.py` or use any env-loading method.
+### Step 3: Add video (optional)
+Place your looping video in the project root as `video.mp4`, or set `VideoFile=` in `config.ini`.
 
-## Testing extraction
+### Step 4: Run
+- **Testing:** Double-click `launcher.au3` in Explorer
+- **Compiled:** Compile with AutoIt3Wrapper then run the `.exe`
+- **Batch launcher:** Double-click `run_display.bat`
 
-To verify the queue extraction logic against your page:
+## Usage
 
-```bash
-python _extract_test.py
+Once running:
+
+| Hotkey | Action |
+|--------|--------|
+| **F5** | Restart all browser windows |
+| **F6** | Cycle display modes |
+| **F8** | Exit kiosk app |
+| **F9** | Mute/unmute audio |
+
+## Configuration Reference
+
+See `config.ini.example` for all available settings:
+
+```ini
+[Settings]
+ChromeExe=    # Leave blank to auto-detect Chrome
+VideoFile=video.mp4
+DefaultMode=dual_url    # dual_url | single_url | video_left | video_right
+RefreshSecs=5
+
+[URLs]
+URL1=https://your-clinic.com/queue-1
+URL2=https://your-clinic.com/queue-2
 ```
 
-This runs Playwright, navigates to `PAGE_URL`, extracts the rows, and saves them to `_extract_output.json`. You can also pass a specific URL:
+## Kiosk Deployment (Windows)
 
-```bash
-python _extract_test.py http://your-page-url
-```
+### Auto-start on boot:
+1. Press `Win + R`, type `shell:startup`
+2. Copy `launcher.exe` (compiled) or a `launcher.au3` shortcut into the Startup folder
+3. Enable Tablet Mode (optional): Settings → System → Tablet Mode → On
 
-## Generating a test video
-
-No video? Generate a simple placeholder:
-
-```bash
-python make_test_video.py
-```
-
-Requires `ffmpeg` on `PATH`. If not found, it creates a text file with manual instructions.
-
-Manual ffmpeg command:
-
-```bash
-ffmpeg -f lavfi -i "color=c=#0f172a:s=640x360:d=3:r=24" \
-  -c:v libx264 -pix_fmt yuv420p -movflags +faststart public/video.mp4
-```
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `main.py` | FastHTML app — serves dashboard, runs Playwright extraction |
-| `_extract_test.py` | Standalone test for the queue row extraction logic |
-| `make_test_video.py` | Generates a test video.mp4 placeholder |
-| `requirements.txt` | Python dependencies |
-| `public/` | Static files served by FastHTML (video, images, etc.) |
+### Lock down Windows (recommended for public kiosks):
+- Create a dedicated kiosk user account
+- Use Group Policy to disable Task Manager, Alt+Tab, etc.
+- Set Chrome to auto-launch in fullscreen mode
 
 ## Troubleshooting
 
-**Black screen / no video:**
-- Ensure `public/video.mp4` exists (see `make_test_video.py`)
-- Check browser console for errors
-- The video must be muted (`muted=True`) — browsers block autoplay with sound
+| Problem | Solution |
+|--------|----------|
+| Chrome doesn't open | Check `ChromeExe` path in `config.ini` |
+| Blank windows | Verify URLs are correct and public-facing |
+| Audio doesn't play | Modern browsers block autoplay — ensure first user interaction, or use muted autoplay + user gesture |
+| Windows not positioned correctly | Check screen resolution matches the target display |
 
-**Empty queue board / "Loading board...":**
-- Verify `PAGE_URL` is correct and accessible
-- Set `PLAYWRIGHT_HEADLESS=0` to debug visually
-- Run `python _extract_test.py` to check extraction output
+## License
 
-**Playwright can't launch Chromium:**
-```bash
-python -m playwright install chromium
-python -m playwright install-deps  # Linux only — installs system libs
-```
-
-**Page loads but extraction finds no rows:**
-- The extraction looks for 3-cell `<div>` rows with width > 500px and height > 40px
-- Inspect the source page in a browser and check DevTools if the DOM structure differs
-- Adjust `EXTRACT_JS` in `main.py` if your page has a different layout
+MIT — built for Bernardino General Hospital II queue display system.

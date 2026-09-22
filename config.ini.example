@@ -1,0 +1,29 @@
+;==================================================================================
+; launcher.ini — Configuration for Queue Display Kiosk Controller
+;==================================================================================
+; Copy this file to config.ini and edit your settings.
+; config.ini is NOT committed to git (see .gitignore).
+
+[Settings]
+; Full path to Chrome executable (leave blank to auto-detect)
+ChromeExe=
+; Path to local video file (relative to project root or absolute)
+VideoFile=video.mp4
+; Default display mode on startup
+; Options: dual_url, single_url, video_left, video_right
+DefaultMode=dual_url
+; How often the monitoring loop checks browser health (seconds)
+RefreshSecs=5
+
+[URLs]
+; Public queue display URLs — replace with your clinic's URLs
+URL1=https://your-queue-service.com/board-1
+URL2=https://your-queue-service.com/board-2
+
+;----------------------------------------------------------------------------------
+; Mode Reference:
+;   dual_url     — Two URLs side by side (50%/50%)
+;   single_url   — One URL fills the entire screen
+;   video_left   — Local video (40% left) + URL2 (60% right)
+;   video_right  — URL1 (60% left) + local video (40% right)
+;

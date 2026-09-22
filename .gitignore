@@ -18,6 +18,9 @@ public/*.webm
 .env.local
 .env.*.local
 
+# AutoIt configuration — DO NOT COMMIT (contains clinic URLs)
+config.ini
+
 # Playwright browser cache
 .cache/
 .playwright/
