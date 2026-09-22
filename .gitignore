@@ -12,3 +12,16 @@ page-dump.html
 # Local media (video lives on the machine, not in the repo)
 public/*.mp4
 public/*.webm
+
+# Environment variables — DO NOT COMMIT (may contain secrets/URLs)
+.env
+.env.local
+.env.*.local
+
+# Playwright browser cache
+.cache/
+.playwright/
+
+# OS files
+.DS_Store
+Thumbs.db
