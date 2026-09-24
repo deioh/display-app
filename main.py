@@ -179,7 +179,7 @@ def render_board():
 
     return (
         Div(cls="bhead"
-            )(Span(header[0], cls="h-dept"),
+            )(Span("ROOM", cls="h-dept"),
               Span(header[2], cls="h-ticket")),
         *items,
     )
@@ -212,7 +212,7 @@ video {{
   width: {BOARD_WIDTH};
   height: 100vh;
   overflow: hidden;
-  background: #0f172a;
+  background: #0b1220;
   color: #fff;
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   display: flex;
@@ -223,11 +223,11 @@ video {{
 /* ===== Board header ===== */
 .bhead {{
   display: flex;
-  background: #1e293b;
+  background: #1d4ed8;
   font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: .05em;
-  color: #94a3b8;
+  color: #fff;
   text-transform: uppercase;
   flex-shrink: 0;
 }}
@@ -239,10 +239,11 @@ video {{
   flex: 1;
   align-items: stretch;
   font-size: 3.2rem;
-  border-top: 2px solid #1e293b;
+  border-top: 2px solid #334155;
+  background: #0f172a;
   flex-shrink: 0;
 }}
-.brow:nth-child(odd) {{ background: #111c2e; }}
+.brow:nth-child(odd) {{ background: #1e293b; }}
 .brow span {{
   flex: 1;
   display: flex;
@@ -253,7 +254,8 @@ video {{
 /* ===== Ticket ===== */
 .ticket {{
   justify-content: flex-start;
-  font-weight: 700;
+  color: #fbbf24;
+  font-weight: 800;
 }}
 .ticket.empty {{ color: #475569; }}
 .ticket:empty {{ color: #475569; }}
