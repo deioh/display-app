@@ -67,7 +67,7 @@ def extract(url: str) -> list:
 def main():
     url = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
         "PAGE_URL",
-        "http://192.168.1.2:9096/public-view-classic-transactional-multi/NpHhv55WqRRA8SwkK/z94jSwaCz9tyEArLi"
+        "http://example.invalid/queue"
     )
 
     print(f"Extracting from: {url}")
