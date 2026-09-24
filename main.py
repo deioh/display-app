@@ -8,7 +8,9 @@ loops on the right.
 The board page renders client-side JavaScript, so it can't be scraped with a
 plain HTTP fetch. This app keeps a Playwright Chromium page open on the target
 URL, samples the queue rows every REFRESH_SECS, drops the middle column
-(window/room), and the board re-renders via HTMX polling.
+(window/room), and pushes the board to the display over SSE — only when the
+extracted rows actually change. The display page loads once and sits; it never
+polls.
 
 Configuration:
   PAGE_URL          — the public-view page to read the queue from
@@ -27,6 +29,7 @@ Run:
 """
 
 import os
+import asyncio
 import threading
 import time
 import logging
@@ -98,15 +101,21 @@ _mock_board = [
     ["Orthopedics / Dr. Chen", "Room 5", "A106"],
 ]
 
+# Diff-push state: the worker bumps _board_version only when freshly extracted
+# rows differ from what was last published; the SSE generator pushes on change.
+_last_published_rows: list = list(_mock_board)
+_board_version: int = 0
+
 
 def board_worker():
     """Background thread: keep the source page loaded in headless Chromium
     and sample the rows every REFRESH_SECS. Falls back to mock data if the
     page is unreachable."""
-    global _board
+    global _board, _last_published_rows, _board_version
     # Start with mock data so the dashboard renders immediately
     with _board_lock:
         _board = list(_mock_board)
+        _last_published_rows = list(_mock_board)
 
     try:
         with sync_playwright() as p:
@@ -122,7 +131,10 @@ def board_worker():
                     # If we get header + at least one row, use it
                     if len(rows) >= 2:
                         with _board_lock:
-                            _board = rows
+                            if rows != _last_published_rows:
+                                _board = rows
+                                _last_published_rows = rows
+                                _board_version += 1
                     else:
                         log.warning("Extraction returned %d rows — keeping last known data.", len(rows))
                 except PlaywrightError as e:
@@ -177,8 +189,9 @@ def render_board():
 # FastHTML app
 # --------------------------------------------------------------------------- #
 
-app, rt = fast_app(static_path="public", pico=False, port=PORT, live=True,
-                   hdrs=Link(rel="stylesheet", href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"))
+app, rt = fast_app(static_path="public", pico=False, default_hdrs=False,
+                   port=PORT, live=False,
+                   hdrs=(Script(src="/htmx.min.js"), Script(src="/sse.js")))
 
 CSS = f"""/* ===== Layout ===== */
 html, body {{ margin: 0; padding: 0; height: 100%; overflow: hidden; }}
@@ -255,10 +268,28 @@ video {{
 """
 
 
-@rt("/board")
-def board():
-    """HTMX endpoint — returns the rendered board rows."""
-    return (*render_board(),)
+shutdown_event = signal_shutdown()
+
+
+async def board_stream():
+    """Push the board over SSE: once on connect, then only when the board
+    version changes (worker bumps it when extracted rows differ)."""
+    with _board_lock:
+        last_seen = _board_version
+    yield sse_message((*render_board(),))
+    while not shutdown_event.is_set():
+        await asyncio.sleep(0.5)
+        with _board_lock:
+            version = _board_version
+        if version != last_seen:
+            last_seen = version
+            yield sse_message((*render_board(),))
+
+
+@rt("/boardstream")
+async def get():
+    """SSE endpoint — pushes the board to connected displays on change."""
+    return EventStream(board_stream())
 
 
 @rt("/")
@@ -271,8 +302,9 @@ def get():
             Div(id="frame")(
                 Div(id="board-container")(
                     Div(id="board",
-                        hx_get="/board",
-                        hx_trigger=f"every {REFRESH_SECS}s",
+                        hx_ext="sse",
+                        sse_connect="/boardstream",
+                        sse_swap="message",
                         hx_swap="innerHTML",
                         cls="queue"
                         )(
@@ -298,4 +330,4 @@ if __name__ == "__main__":
     log.info("Starting display-app on port %d", PORT)
     log.info("PAGE_URL: %s", PAGE_URL)
     log.info("VIDEO_FILE: %s", VIDEO_FILE)
-    serve()
+    serve(reload=False)
