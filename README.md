@@ -1,113 +1,87 @@
-# Queue Display Kiosk Controller
+# Queue Display
 
-A Windows kiosk application built with **AutoIt** that manages hospital queue displays. It orchestrates Chrome browser windows to show multiple web pages side-by-side, with optional local video overlays.
+One page shows your clinic's queue board on the left and a looping video on the right. The board updates itself the moment the queue changes, no reloading needed.
 
-## Features
+## Requirements
 
-- 🖥️ **Multiple Display Modes**
-  - `dual_url` — Two queue URLs side-by-side (50%/50%)
-  - `single_url` — One URL fills the entire screen
-  - `video_left` — Local video (40%) + URL (60%)
-  - `video_right` — URL (60%) + local video (40%)
-- ⚡ **AutoHotkey-style hotkeys** for control during operation
-- 🔄 **Crash recovery** — automatically restarts browser windows if they crash
-- 🔇 **Mute toggle** — F9 to mute/unmute audio
-- 🚀 **Kiosk-ready** — auto-starts in fullscreen, hides controls
+- Windows 10/11
+- Python 3.13
+- Google Chrome (for kiosk mode)
 
-## Project Structure
+Install the Python packages:
 
 ```
-queue_kiosk/
-├── launcher.au3        ← Main AutoIt script (kiosk controller)
-├── config.ini          ← Your settings (NOT in git — see .gitignore)
-├── config.ini.example  ← Template configuration
-├── run_display.bat     ← Windows batch launcher
-├── README.md           ← This file
-├── requirements.txt    ← Python deps (for web backend only)
-├── main.py             ← Flask/FastHTML backend (legacy)
-├── video_queue_dashboard.html ← Standalone HTML dashboard
-├── examples/           ← Reference implementations
-└── lib/                ← Future helper modules
+pip install -r requirements.txt
+python -m playwright install chromium
 ```
-
-## Prerequisites
-
-1. **Windows** (tested on Windows 10/11)
-2. **Google Chrome** installed
-3. **AutoIt** (optional — for compiling; you can also run `.au3` directly)
-   - Download: https://www.autoitscript.com/site/autoit/downloads/
 
 ## Setup
 
-### Step 1: Install dependencies
-```bash
-pip install -r requirements.txt
-python -m playwright install chromium  # Only needed for Python backend
+Copy the example settings file to `.env`:
+
+```
+copy .env.example .env
 ```
 
-### Step 2: Configure
-```bash
-cp config.ini.example config.ini
-# Edit config.ini with your clinic's URLs and settings:
-notepad config.ini
+Then open `.env` and set your values:
+
+| Key | What it does |
+|-----|--------------|
+| `PAGE_URL` | The QMeUp public view URL for your queue |
+| `VIDEO_FILE` | Video file name inside `public\` (e.g. `video.mp4`) |
+| `VIDEO_WIDTH` | Width of the video pane, as a CSS value (e.g. `45vw`) |
+| `BOARD_WIDTH` | Width of the queue board, as a CSS value (e.g. `55vw`) |
+| `VIDEO_BG_COLOR` | Background color behind the video (e.g. `#000`) |
+| `VIDEO_FIT` | How the video fills its pane: `contain` or `cover` |
+| `REFRESH_SECS` | How often the server re-checks the queue page, in seconds. This is server-side sampling only; the display page itself never refreshes. |
+| `PORT` | Port the app listens on (default `5001`) |
+
+## Add a video
+
+Drop your video file into the `public\` folder, for example `public\video.mp4`, and set `VIDEO_FILE=video.mp4` in `.env`.
+
+## Run
+
+From the `display-app` folder:
+
+```
+python main.py
 ```
 
-### Step 3: Add video (optional)
-Place your looping video in the project root as `video.mp4`, or set `VideoFile=` in `config.ini`.
+Then open `http://127.0.0.1:5001` in a browser.
 
-### Step 4: Run
-- **Testing:** Double-click `launcher.au3` in Explorer
-- **Compiled:** Compile with AutoIt3Wrapper then run the `.exe`
-- **Batch launcher:** Double-click `run_display.bat`
+Or double-click `start_display.bat`. It kills any stale copy of the app, starts the server, waits for it to come up, then launches Chrome in kiosk (fullscreen) mode pointed at the display page.
 
-## Usage
+## Start on boot
 
-Once running:
+The app does not register itself. You switch autostart on yourself, one of two ways.
 
-| Hotkey | Action |
-|--------|--------|
-| **F5** | Restart all browser windows |
-| **F6** | Cycle display modes |
-| **F8** | Exit kiosk app |
-| **F9** | Mute/unmute audio |
+### Option A: Task Scheduler
 
-## Configuration Reference
+1. Open Task Scheduler (search "Task Scheduler" in the Start menu).
+2. Create Task.
+3. General tab: give it a name, and check "Run whether user is logged on or not" if you want it to start before anyone signs in.
+4. Triggers tab: New, set "Begin the task" to "At log on".
+5. Actions tab: New, Action = "Start a program", Program/script = the full path to `start_display.bat`.
+6. OK to save.
 
-See `config.ini.example` for all available settings:
+### Option B: Startup folder shortcut
 
-```ini
-[Settings]
-ChromeExe=    # Leave blank to auto-detect Chrome
-VideoFile=video.mp4
-DefaultMode=dual_url    # dual_url | single_url | video_left | video_right
-RefreshSecs=5
+1. Press `Win + R`, type `shell:startup`, press Enter.
+2. Create a shortcut to `start_display.bat` in that folder.
 
-[URLs]
-URL1=https://your-clinic.com/queue-1
-URL2=https://your-clinic.com/queue-2
-```
+## How updates work
 
-## Kiosk Deployment (Windows)
-
-### Auto-start on boot:
-1. Press `Win + R`, type `shell:startup`
-2. Copy `launcher.exe` (compiled) or a `launcher.au3` shortcut into the Startup folder
-3. Enable Tablet Mode (optional): Settings → System → Tablet Mode → On
-
-### Lock down Windows (recommended for public kiosks):
-- Create a dedicated kiosk user account
-- Use Group Policy to disable Task Manager, Alt+Tab, etc.
-- Set Chrome to auto-launch in fullscreen mode
+The display page loads once and sits. It does NOT refresh itself. The server keeps the queue page open in the background, checks it every `REFRESH_SECS` seconds, and pushes the new board to the display only when the queue actually changes. If nothing changes, nothing is sent.
 
 ## Troubleshooting
 
-| Problem | Solution |
-|--------|----------|
-| Chrome doesn't open | Check `ChromeExe` path in `config.ini` |
-| Blank windows | Verify URLs are correct and public-facing |
-| Audio doesn't play | Modern browsers block autoplay — ensure first user interaction, or use muted autoplay + user gesture |
-| Windows not positioned correctly | Check screen resolution matches the target display |
+| Problem | What to check |
+|---------|---------------|
+| Video area is blank or shows a placeholder | The video file is missing, or the name in `VIDEO_FILE` doesn't match a file in `public\`. |
+| Board is blank | `PAGE_URL` is wrong, or the clinic network can't reach it. |
+| Board shows sample/mock rows | The server can't open the queue page with Playwright. Check `PAGE_URL` and that this machine can reach it over the network. |
 
 ## License
 
-MIT — built for Bernardino General Hospital II queue display system.
+MIT, built for Bernardino General Hospital II queue display system.
