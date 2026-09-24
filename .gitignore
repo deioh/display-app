@@ -28,3 +28,6 @@ config.ini
 # OS files
 .DS_Store
 Thumbs.db
+
+# Retired AutoIt launcher (preserved locally, never committed)
+BackUp/
