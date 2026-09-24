@@ -42,8 +42,7 @@ from playwright.sync_api import sync_playwright, Error as PlaywrightError
 # Configuration (environment overrides with sensible defaults)
 # --------------------------------------------------------------------------- #
 
-PAGE_URL           = os.environ.get("PAGE_URL",
-    "http://192.168.1.2:9096/public-view-classic-transactional-multi/NpHhv55WqRRA8SwkK/z94jSwaCz9tyEArLi")
+PAGE_URL           = os.environ.get("PAGE_URL", "")
 VIDEO_FILE         = os.environ.get("VIDEO_FILE", "video.mp4")
 VIDEO_WIDTH        = os.environ.get("VIDEO_WIDTH", "45vw")
 VIDEO_BG_COLOR     = os.environ.get("VIDEO_BG_COLOR", "#000")
@@ -58,6 +57,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("display-app")
+
+if not PAGE_URL:
+    log.warning("PAGE_URL is empty — set it in .env (see .env.example); board will show mock data.")
 
 # --------------------------------------------------------------------------- #
 # Queue extraction logic
