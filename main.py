@@ -22,6 +22,8 @@ Configuration:
   VIDEO_FIT         — object-fit for the video ("contain" or "cover")
   PLAYWRIGHT_HEADLESS — "0" to run Chromium with a visible window (debug)
   PORT              — listen port (default 5001)
+  AUTO_LAUNCH       — auto-launch Chrome: "1" (default) or "0" (server only)
+  KIOSK_MODE        — launch Chrome in kiosk mode: "1" (default) or "0" (normal window)
 
 Run:
   python main.py
@@ -54,6 +56,8 @@ REFRESH_SECS       = int(os.environ.get("REFRESH_SECS", "5"))
 BOARD_WIDTH        = os.environ.get("BOARD_WIDTH", "55vw")
 PLAYWRIGHT_HEADLESS = os.environ.get("PLAYWRIGHT_HEADLESS", "1") != "0"
 PORT               = int(os.environ.get("PORT", "5001"))
+AUTO_LAUNCH         = os.environ.get("AUTO_LAUNCH", "1") != "0"
+KIOSK_MODE          = os.environ.get("KIOSK_MODE", "1") != "0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -327,9 +331,57 @@ def get():
 # Start background board extraction
 threading.Thread(target=board_worker, daemon=True).start()
 
+# Auto-launch Chrome if enabled
+if AUTO_LAUNCH:
+    import webbrowser
+    import subprocess
+    import sys
+    def _launch_kiosk():
+        time.sleep(2)  # wait for server to be ready
+        url = f"http://127.0.0.1:{PORT}"
+        log.info("Launching Chrome%s: %s", " (kiosk)" if KIOSK_MODE else "", url)
+
+        # Close any Chrome already showing this app, so a stale kiosk window
+        # isn't reused and we don't accumulate duplicate windows.
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+                 f"Where-Object {{ $_.CommandLine -like '*127.0.0.1:{PORT}*' }} | "
+                 "ForEach-Object { Stop-Process -Id $_.ProcessId -Force "
+                 "-ErrorAction SilentlyContinue }"],
+                capture_output=True, timeout=15,
+            )
+        except Exception as e:
+            log.warning("Could not close existing Chrome instances: %s", e)
+
+        # Try to find Chrome
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        ]
+        chrome_exe = None
+        for p in chrome_paths:
+            if os.path.exists(p):
+                chrome_exe = p
+                break
+        if chrome_exe:
+            args = [chrome_exe]
+            if KIOSK_MODE:
+                args.append("--kiosk")
+            args.extend(["--autoplay-policy=no-user-gesture-required", url])
+            log.info("Chrome args: %s", " ".join(args[1:]))
+            subprocess.Popen(args, start_new_session=True)
+        else:
+            # Fallback to system default browser
+            webbrowser.open(url)
+    threading.Thread(target=_launch_kiosk, daemon=True).start()
+
 # Run the app
 if __name__ == "__main__":
     log.info("Starting display-app on port %d", PORT)
     log.info("PAGE_URL: %s", PAGE_URL)
     log.info("VIDEO_FILE: %s", VIDEO_FILE)
+    log.info("AUTO_LAUNCH: %s  KIOSK_MODE: %s", AUTO_LAUNCH, KIOSK_MODE)
     serve(reload=False)

@@ -34,7 +34,9 @@ Then open `.env` and set your values:
 | `VIDEO_BG_COLOR` | Background color behind the video (e.g. `#000`) |
 | `VIDEO_FIT` | How the video fills its pane: `contain` or `cover` |
 | `REFRESH_SECS` | How often the server re-checks the queue page, in seconds. This is server-side sampling only; the display page itself never refreshes. |
-| `PORT` | Port the app listens on (default `5001`) |
+||| `PORT` | Port the app listens on (default `5001`) ||
+||| `AUTO_LAUNCH` | Auto-launch Chrome: `1` (default) or `0` (server only) ||
+||| `KIOSK_MODE` | Launch Chrome in kiosk mode: `1` (kiosk, default) or `0` (normal window) ||
 
 ## Add a video
 
@@ -51,6 +53,8 @@ python main.py
 Then open `http://127.0.0.1:5001` in a browser.
 
 Or double-click `start_display.bat`. It kills any stale copy of the app, starts the server, waits for it to come up, then launches Chrome in kiosk (fullscreen) mode pointed at the display page.
+
+**Or use the built-in auto-launch** (enabled by default via `AUTO_LAUNCH=1` in `.env`): just run `python main.py` and Chrome will launch automatically after the server starts. Set `AUTO_LAUNCH=0` to run the server only. `KIOSK_MODE=1` (default) opens Chrome fullscreen; `KIOSK_MODE=0` opens a normal window you can resize.
 
 ## Start on boot
 
